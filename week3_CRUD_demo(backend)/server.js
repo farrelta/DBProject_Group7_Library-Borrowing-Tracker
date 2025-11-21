@@ -211,6 +211,40 @@ app.post("/return", auth("librarian"), (req, res) => {
 });
 
 // ---------------------------
+// Delete User (borrower + Librarian)
+// ---------------------------
+
+app.delete("/borrower/:id", (req, res) => {
+  const userID = req.params.id;
+
+  const sql = "DELETE FROM Borrower WHERE userID = ?";
+  db.query(sql, [userID], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Borrower not found" });
+    }
+
+    res.json({ message: "Borrower deleted successfully" });
+  });
+});
+
+app.delete("/librarian/:id", (req, res) => {
+  const librarianID = req.params.id;
+
+  const sql = "DELETE FROM Librarian WHERE librarianID = ?";
+  db.query(sql, [librarianID], (err, result) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Librarian not found" });
+    }
+
+    res.json({ message: "Librarian deleted successfully" });
+  });
+});
+
+// ---------------------------
 app.listen(process.env.PORT, () =>
   console.log("🚀 Server running on port " + process.env.PORT)
 );
