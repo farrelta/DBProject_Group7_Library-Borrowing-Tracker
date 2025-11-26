@@ -39,14 +39,12 @@ function auth(role) {
 // ---------------------------
 app.post("/borrower/register", async (req, res) => {
   const { borrowerName, borrowerEmail, borrowerPass } = req.body;
-
   const hash = await bcrypt.hash(borrowerPass, 10);
 
   db.query(
-    `INSERT INTO Borrower (borrowerName, borrowerEmail, borrowerPass)
-     VALUES (?, ?, ?)`,
+    `INSERT INTO Borrower (borrowerName, borrowerEmail, borrowerPass) VALUES (?, ?, ?)`,
     [borrowerName, borrowerEmail, hash],
-    err => {
+    (err) => {
       if (err) return res.status(400).json({ error: "Email already used" });
       res.json({ message: "Borrower registered" });
     }
@@ -67,19 +65,8 @@ app.post("/borrower/login", (req, res) => {
       const match = await bcrypt.compare(borrowerPass, borrower.borrowerPass);
       if (!match) return res.status(400).json({ error: "Wrong password" });
 
-      const token = generateToken({
-        id: borrower.userID,
-        role: "borrower"
-      });
-
-      res.json({
-        message: "Login success",
-        token,
-        borrower: {
-          id: borrower.userID,
-          name: borrower.borrowerName
-        }
-      });
+      const token = generateToken({ id: borrower.userID, role: "borrower" });
+      res.json({ message: "Login success", token });
     }
   );
 });
@@ -89,14 +76,12 @@ app.post("/borrower/login", (req, res) => {
 // ---------------------------
 app.post("/librarian/register", async (req, res) => {
   const { librarianName, librarianEmail, librarianPass } = req.body;
-
   const hash = await bcrypt.hash(librarianPass, 10);
 
   db.query(
-    `INSERT INTO Librarian (librarianName, librarianEmail, librarianPass)
-     VALUES (?, ?, ?)`,
+    `INSERT INTO Librarian (librarianName, librarianEmail, librarianPass) VALUES (?, ?, ?)`,
     [librarianName, librarianEmail, hash],
-    err => {
+    (err) => {
       if (err) return res.status(400).json({ error: "Email already used" });
       res.json({ message: "Librarian registered" });
     }
@@ -117,134 +102,133 @@ app.post("/librarian/login", (req, res) => {
       const match = await bcrypt.compare(librarianPass, librarian.librarianPass);
       if (!match) return res.status(400).json({ error: "Wrong password" });
 
-      const token = generateToken({
-        id: librarian.librarianID,
-        role: "librarian"
-      });
-
-      res.json({
-        message: "Login success",
-        token,
-        librarian: {
-          id: librarian.librarianID,
-          name: librarian.librarianName
-        }
-      });
+      const token = generateToken({ id: librarian.librarianID, role: "librarian" });
+      res.json({ message: "Login success", token });
     }
   );
 });
 
 // ---------------------------
-// BOOK CRUD (LIBRARIAN ONLY)
+// BOOK MANAGEMENT
 // ---------------------------
-
-// Get all books
 app.get("/books", (req, res) => {
   db.query(`SELECT * FROM Book`, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-// Add book (librarian only)
 app.post("/books", auth("librarian"), (req, res) => {
-  const { bookISBN, bookTitle, bookGenre, bookStatus } = req.body;
-
+  const { bookISBN, bookTitle, bookGenre } = req.body;
   db.query(
-    `INSERT INTO Book (bookISBN, bookTitle, bookGenre, bookStatus)
-     VALUES (?, ?, ?, ?)`,
-    [bookISBN, bookTitle, bookGenre, bookStatus || "available"],
-    err => {
-      if (err) throw err;
+    `INSERT INTO Book (bookISBN, bookTitle, bookGenre, bookStatus) VALUES (?, ?, ?, 'available')`,
+    [bookISBN, bookTitle, bookGenre],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
       res.json({ message: "Book added" });
     }
   );
 });
 
-// Delete book (librarian only)
 app.delete("/books/:id", auth("librarian"), (req, res) => {
-  db.query(`DELETE FROM Book WHERE bookID = ?`, [req.params.id], err => {
+  db.query(`DELETE FROM Book WHERE bookID = ?`, [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ message: "Book deleted" });
   });
 });
 
 // ---------------------------
-// BORROWING (Borrower + Librarian)
+// NEW: APPROVAL WORKFLOW
 // ---------------------------
 
-// Borrow book (borrower)
+// 1. Borrower Requests a Book
 app.post("/borrow", auth("borrower"), (req, res) => {
-  const { bookID, librarianID } = req.body;
+  const { bookID } = req.body;
 
   db.query(`SELECT * FROM Book WHERE bookID = ?`, [bookID], (err, rows) => {
+    if (rows.length === 0) return res.status(404).json({ error: "Book not found" });
     if (rows[0].bookStatus !== "available")
       return res.status(400).json({ error: "Book not available" });
 
-    db.query(`UPDATE Book SET bookStatus='borrowed' WHERE bookID=?`, [bookID]);
+    // Mark book as pending so others can't take it
+    db.query(`UPDATE Book SET bookStatus='pending' WHERE bookID=?`, [bookID]);
 
+    // Create borrowing record with 'pending' status (Librarian ID is NULL for now)
     db.query(
-      `INSERT INTO Borrowing (borrowDate, bookID, userID, librarianID)
-       VALUES (CURDATE(), ?, ?, ?)`,
-      [bookID, req.user.id, librarianID],
-      err => {
-        res.json({ message: "Book borrowed" });
+      `INSERT INTO Borrowing (borrowDate, bookID, userID, status) VALUES (CURDATE(), ?, ?, 'pending')`,
+      [bookID, req.user.id],
+      (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Request sent. Waiting for approval." });
       }
     );
   });
 });
 
-// Return book (librarian updates)
+// 2. Librarian Sees Requests
+app.get("/borrow/requests", auth("librarian"), (req, res) => {
+  const sql = `
+    SELECT br.borrowID, b.bookTitle, u.borrowerName, br.borrowDate 
+    FROM Borrowing br
+    JOIN Book b ON br.bookID = b.bookID
+    JOIN Borrower u ON br.userID = u.userID
+    WHERE br.status = 'pending'
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// 3. Librarian Approves Request
+app.post("/borrow/approve", auth("librarian"), (req, res) => {
+  const { borrowID } = req.body;
+  const librarianID = req.user.id; // Get ID from logged-in token
+
+  // Update Borrowing: set status to approved and assign Librarian
+  db.query(
+    `UPDATE Borrowing SET status='approved', librarianID=? WHERE borrowID=?`,
+    [librarianID, borrowID],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      // Update Book status to 'borrowed'
+      db.query(
+        `UPDATE Book SET bookStatus='borrowed' 
+         WHERE bookID = (SELECT bookID FROM Borrowing WHERE borrowID=?)`,
+        [borrowID]
+      );
+
+      res.json({ message: "Borrowing approved" });
+    }
+  );
+});
+
+// 4. Return Book (Librarian)
 app.post("/return", auth("librarian"), (req, res) => {
   const { borrowID } = req.body;
 
   db.query(
-    `UPDATE Borrowing SET returnDate=CURDATE() WHERE borrowID=?`,
-    [borrowID]
-  );
+    `UPDATE Borrowing SET returnDate=CURDATE(), status='returned' WHERE borrowID=?`,
+    [borrowID],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
 
-  db.query(
-    `UPDATE Book SET bookStatus='available' 
-     WHERE bookID = (SELECT bookID FROM Borrowing WHERE borrowID=?)`,
-    [borrowID]
-  );
+      // Make book available again
+      db.query(
+        `UPDATE Book SET bookStatus='available' 
+         WHERE bookID = (SELECT bookID FROM Borrowing WHERE borrowID=?)`,
+        [borrowID]
+      );
 
-  res.json({ message: "Book returned" });
-});
-
-// ---------------------------
-// Delete User (borrower + Librarian)
-// ---------------------------
-
-app.delete("/borrower/:id", (req, res) => {
-  const userID = req.params.id;
-
-  const sql = "DELETE FROM Borrower WHERE userID = ?";
-  db.query(sql, [userID], (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Borrower not found" });
+      res.json({ message: "Book returned successfully" });
     }
-
-    res.json({ message: "Borrower deleted successfully" });
-  });
-});
-
-app.delete("/librarian/:id", (req, res) => {
-  const librarianID = req.params.id;
-
-  const sql = "DELETE FROM Librarian WHERE librarianID = ?";
-  db.query(sql, [librarianID], (err, result) => {
-    if (err) return res.status(500).json({ error: err.message });
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Librarian not found" });
-    }
-
-    res.json({ message: "Librarian deleted successfully" });
-  });
+  );
 });
 
 // ---------------------------
-app.listen(process.env.PORT, () =>
-  console.log("🚀 Server running on port " + process.env.PORT)
+// SERVER START
+// ---------------------------
+app.listen(process.env.PORT || 5000, () =>
+  console.log("🚀 Server running on port " + (process.env.PORT || 5000))
 );
