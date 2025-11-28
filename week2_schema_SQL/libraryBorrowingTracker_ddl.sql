@@ -1,62 +1,52 @@
-create database libraryBorrowingTracker;
-use libraryBorrowingTracker;
+CREATE DATABASE librarydb;
+USE librarydb;
 
-CREATE TABLE Borrower
-(
-  userID INT NOT NULL,
-  borrowerName INT NOT NULL,
-  borrowerEmail INT NOT NULL,
-  borrowerPass INT NOT NULL,
-  PRIMARY KEY (userID)
+CREATE TABLE Borrower (
+  userID INT AUTO_INCREMENT PRIMARY KEY,
+  borrowerName VARCHAR(100),
+  borrowerEmail VARCHAR(100) UNIQUE,
+  borrowerPass VARCHAR(255)
 );
 
-CREATE TABLE Librarian
-(
-  librarianID INT NOT NULL,
-  librarianName INT NOT NULL,
-  librarianEmail INT NOT NULL,
-  librarianPass INT NOT NULL,
-  PRIMARY KEY (librarianID)
+CREATE TABLE Librarian (
+  librarianID INT AUTO_INCREMENT PRIMARY KEY,
+  librarianName VARCHAR(100),
+  librarianEmail VARCHAR(100) UNIQUE,
+  librarianPass VARCHAR(255)
 );
 
-CREATE TABLE Book
-(
-  bookID INT NOT NULL,
-  bookISBN INT NOT NULL,
-  bookTitle INT NOT NULL,
-  bookGenre INT NOT NULL,
-  bookStatus INT NOT NULL,
-  PRIMARY KEY (bookID)
+CREATE TABLE Book (
+  bookID INT AUTO_INCREMENT PRIMARY KEY,
+  bookISBN VARCHAR(20),
+  bookTitle VARCHAR(255),
+  bookGenre VARCHAR(100),
+  bookStatus ENUM('available', 'pending', 'borrowed') DEFAULT 'available'
 );
 
-CREATE TABLE bookAuthor
-(
-  bookAuthor INT NOT NULL,
-  bookID INT NOT NULL,
-  PRIMARY KEY (bookAuthor, bookID),
-  FOREIGN KEY (bookID) REFERENCES Book(bookID)
+CREATE TABLE Author (
+  authorID INT AUTO_INCREMENT PRIMARY KEY,
+  authorName VARCHAR(255)
 );
 
-CREATE TABLE Borrowing
-(
-  borrowID INT NOT NULL,
-  borrowDate INT NOT NULL,
-  returnDate INT NOT NULL,
-  fine INT,
-  bookID INT NOT NULL,
-  userID INT NOT NULL,
-  librarianID INT NOT NULL,
-  PRIMARY KEY (borrowID),
+CREATE TABLE BookAuthor (
+  authorID INT,
+  bookID INT,
+  PRIMARY KEY (authorID, bookID),
+  FOREIGN KEY (authorID) REFERENCES Author(authorID) ON DELETE CASCADE,
+  FOREIGN KEY (bookID) REFERENCES Book(bookID) ON DELETE CASCADE
+);
+
+CREATE TABLE Borrowing (
+  borrowID INT AUTO_INCREMENT PRIMARY KEY,
+  borrowDate DATE,
+  returnDate DATE,
+  fine DECIMAL(10,2) DEFAULT 0.00,
+  bookID INT,
+  userID INT,
+  librarianID INT,
+  dueDate DATE,
+  status ENUM('pending', 'approved', 'returned') DEFAULT 'pending',
   FOREIGN KEY (bookID) REFERENCES Book(bookID),
-  FOREIGN KEY (userID) REFERENCES Borrower(userID),
-  FOREIGN KEY (librarianID) REFERENCES Librarian(librarianID)
-);
-
-CREATE TABLE Manages
-(
-  librarianID INT NOT NULL,
-  bookID INT NOT NULL,
-  PRIMARY KEY (librarianID, bookID),
-  FOREIGN KEY (librarianID) REFERENCES Librarian(librarianID),
-  FOREIGN KEY (bookID) REFERENCES Book(bookID)
+  FOREIGN KEY (userID) REFERENCES Borrower(userID) ON DELETE CASCADE,
+  FOREIGN KEY (librarianID) REFERENCES Librarian(librarianID) ON DELETE SET NULL
 );
