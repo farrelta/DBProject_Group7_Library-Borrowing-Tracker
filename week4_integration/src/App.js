@@ -22,7 +22,7 @@ function App() {
       <div className="App">
         {/* Simple Header */}
         <header style={{padding: '15px', background: '#333', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-           <h2 style={{margin: 0}}>📚 Library System</h2>
+           <h2 style={{margin: 0, color: 'white'}}>📚 Library System</h2>
            {localStorage.getItem('token') && (
              <button onClick={() => {
                localStorage.clear(); 
