@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api from './api';
 
 export default function LibrarianDashboard() {
@@ -15,6 +15,8 @@ export default function LibrarianDashboard() {
   const [editId, setEditId] = useState(null);
 
   const [returnId, setReturnId] = useState('');
+
+  const formRef = useRef(null);
 
   useEffect(() => {
     fetchBooks();
@@ -63,7 +65,10 @@ export default function LibrarianDashboard() {
       bookGenre: book.bookGenre,
       quantity: book.totalCopies 
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    if (formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   };
 
   const cancelEdit = () => {
@@ -157,8 +162,8 @@ export default function LibrarianDashboard() {
       </div>
 
       {/* ADD / EDIT BOOK FORM */}
-      <div className={`section ${isEditing ? 'primary' : ''}`}>
-        <h3 style={{color: isEditing ? '#007bff' : 'black'}}>
+      <div ref={formRef} className={`section ${isEditing ? 'primary' : ''}`}>
+        <h3 style={{ textAlign: 'center', color: isEditing ? '#007bff' : 'black' }}>
             {isEditing ? '✏️ Edit Book' : '📚 Add New Book'}
         </h3>
         
