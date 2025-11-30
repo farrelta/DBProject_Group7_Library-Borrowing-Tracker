@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from './api';
 import { useNavigate } from 'react-router-dom';
+import './styles/Login.css';
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -21,7 +22,6 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const route = isRegister ? `/${role}/register` : `/${role}/login`;
-    
     const payload = {};
     if (role === 'borrower') {
         payload.borrowerEmail = formData.email;
@@ -35,7 +35,6 @@ export default function Login() {
 
     try {
       const res = await api.post(route, payload);
-      
       if (!isRegister) {
         sessionStorage.setItem('token', res.data.token);
         sessionStorage.setItem('role', role);
@@ -72,12 +71,9 @@ export default function Login() {
       </div>
 
       <form onSubmit={handleSubmit} className="form-group">
-        {isRegister && (
-          <input name="name" placeholder="Name" onChange={handleChange} required />
-        )}
+        {isRegister && <input name="name" placeholder="Name" onChange={handleChange} required />}
         <input name="email" placeholder="Email" type="email" onChange={handleChange} required />
         <input name="password" placeholder="Password" type="password" onChange={handleChange} required />
-        
         <button type="submit" className="btn-success" style={{marginTop: '10px'}}>
             {isRegister ? 'Sign Up' : 'Login'}
         </button>

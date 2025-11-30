@@ -1,0 +1,52 @@
+/* Table specific to Librarian */
+.task-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.task-table th, 
+.task-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.task-table th {
+  background-color: #eee;
+}
+
+/* List View for Catalog */
+.book-list {
+  list-style: none;
+  padding: 0;
+}
+
+.book-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.book-list-item:hover {
+  background-color: #fafafa;
+}
+
+/* NEW: Search Bar Style */
+.search-bar {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box; /* Ensures padding doesn't widen the element */
+}
+
+.search-bar:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 5px rgba(0,123,255,0.2);
+}

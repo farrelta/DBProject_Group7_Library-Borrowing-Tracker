@@ -3,8 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './Login';
 import BorrowerDashboard from './BorrowerDashboard';
 import LibrarianDashboard from './LibrarianDashboard';
-import Navbar from './Navbar'; // Import the new component
-import './Dashboard.css';
+import Navbar from './Navbar';
+import './styles/App.css';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const token = sessionStorage.getItem('token');

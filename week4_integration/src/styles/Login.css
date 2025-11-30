@@ -1,0 +1,9 @@
+.toggle-btns {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.toggle-btns button {
+  flex: 1; /* Makes buttons equal width */
+}
