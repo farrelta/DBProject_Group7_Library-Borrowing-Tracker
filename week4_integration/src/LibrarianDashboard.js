@@ -4,30 +4,22 @@ import api from './api';
 export default function LibrarianDashboard() {
   const [books, setBooks] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [newBook, setNewBook] = useState({ bookISBN: '', bookTitle: '', bookGenre: '' });
+  
+  // State for Form
+  const [formData, setFormData] = useState({ 
+    bookISBN: '', bookTitle: '', bookAuthor: '', bookGenre: '', quantity: 1 
+  });
+  
+  // State for Edit Mode
+  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
+
   const [returnId, setReturnId] = useState('');
 
   useEffect(() => {
     fetchBooks();
     fetchRequests();
   }, []);
-
-  const handleApprove = async (borrowID) => {
-    // 1. Ask Librarian for the duration
-    const daysStr = prompt("Enter number of days for borrowing:", "7");
-    if (daysStr === null) return; // Cancelled
-    
-    const days = parseInt(daysStr);
-    if (isNaN(days) || days <= 0) return alert("Invalid number of days");
-
-    try {
-      // 2. Send borrowID AND days to backend
-      await api.post('/borrow/approve', { borrowID, days });
-      alert('Request Approved!');
-      fetchRequests(); 
-      fetchBooks();    
-    } catch (err) { alert('Error approving request'); }
-  };
 
   const fetchBooks = async () => {
     const res = await api.get('/books');
@@ -39,61 +31,114 @@ export default function LibrarianDashboard() {
     setRequests(res.data);
   };
 
-  const handleAddBook = async (e) => {
+  // --- FORM HANDLING ---
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/books', newBook);
-      alert('Book added');
-      setNewBook({ bookISBN: '', bookTitle: '', bookGenre: '' }); // Clear form
+      if (isEditing) {
+        await api.put(`/books/${editId}`, { 
+            ...formData, 
+            totalCopies: formData.quantity 
+        });
+        alert('Book Updated Successfully');
+        cancelEdit(); 
+      } else {
+        await api.post('/books', formData);
+        alert('Book Added Successfully');
+        setFormData({ bookISBN: '', bookTitle: '', bookAuthor: '', bookGenre: '', quantity: 1 });
+      }
       fetchBooks();
-    } catch (err) { alert('Error adding book'); }
+    } catch (err) {
+      alert(err.response?.data?.error || 'Operation failed');
+    }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this book?")) return;
+  const startEdit = (book) => {
+    setIsEditing(true);
+    setEditId(book.bookID);
+    setFormData({
+      bookISBN: book.bookISBN,
+      bookTitle: book.bookTitle,
+      bookAuthor: book.bookAuthor || '',
+      bookGenre: book.bookGenre,
+      quantity: book.totalCopies 
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditId(null);
+    setFormData({ bookISBN: '', bookTitle: '', bookAuthor: '', bookGenre: '', quantity: 1 });
+  };
+
+  const handleDelete = async (id, available, total) => {
+    if (available < total) {
+      const missing = total - available;
+      alert(`⚠️ Cannot delete!\n\n${missing} copy(ies) are out.`);
+      return;
+    }
+    if (!window.confirm("Are you sure? This will PERMANENTLY delete the book.")) return;
+    
     try {
       await api.delete(`/books/${id}`);
       fetchBooks();
-    } catch (err) { alert('Error deleting book'); }
+    } catch (err) { alert(err.response?.data?.error); }
   };
 
-  const handleReturn = async () => {
-    if(!returnId) return alert("Please enter a Borrow ID");
+  const handleApprove = async (borrowID) => {
+    const daysStr = prompt("Enter number of days:", "7");
+    if (!daysStr) return;
     try {
-      await api.post('/return', { borrowID: returnId });
-      alert('Book Returned Successfully');
-      setReturnId('');
-      fetchBooks();
-    } catch (err) { alert('Error returning book'); }
+      await api.post('/borrow/approve', { borrowID, days: parseInt(daysStr) });
+      fetchRequests(); fetchBooks();    
+    } catch (err) { alert('Error approving'); }
+  };
+
+  const handleConfirmReturn = async (borrowID) => {
+    if(!window.confirm("Confirm return?")) return;
+    try {
+      const res = await api.post('/return', { borrowID });
+      alert(res.data.message);
+      fetchRequests(); fetchBooks();
+    } catch (err) { alert('Error returning'); }
+  };
+
+  const handleManualReturn = async () => {
+    if(!returnId) return alert("Enter ID");
+    try {
+        const res = await api.post('/return', { borrowID: returnId });
+        alert(res.data.message);
+        setReturnId('');
+        fetchBooks();
+    } catch (err) { alert('Error returning'); }
   };
 
   return (
     <div className="container">
       <h1>Librarian Dashboard</h1>
 
-      {/* --- SECTION 1: APPROVALS --- */}
-      <div className="section" style={{border: '2px solid #ffc107'}}>
-        <h3>🔔 Pending Approvals</h3>
-        {requests.length === 0 ? <p>No pending requests.</p> : (
-          <table style={{width: '100%', borderCollapse: 'collapse'}}>
+      {/* REQUESTS TABLE */}
+      <div className="section warning">
+        <h3>🔔 Tasks</h3>
+        {requests.length === 0 ? <p>No pending tasks.</p> : (
+          <table className="task-table">
             <thead>
-              <tr style={{background: '#f8f9fa', textAlign: 'left'}}>
-                <th style={{padding: '8px'}}>ID</th>
-                <th>Borrower</th>
-                <th>Book</th>
-                <th>Action</th>
+              <tr>
+                <th>User</th><th>Book</th><th>Action</th>
               </tr>
             </thead>
             <tbody>
               {requests.map(req => (
-                <tr key={req.borrowID} style={{borderBottom: '1px solid #eee'}}>
-                  <td style={{padding: '8px'}}>{req.borrowID}</td>
+                <tr key={req.borrowID}>
                   <td>{req.borrowerName}</td>
                   <td>{req.bookTitle}</td>
                   <td>
-                    <button onClick={() => handleApprove(req.borrowID)} style={{backgroundColor: '#28a745'}}>
-                      Approve
-                    </button>
+                    {req.status === 'pending' ? (
+                      <button onClick={() => handleApprove(req.borrowID)} className="btn-success btn-sm">Approve</button>
+                    ) : (
+                      <button onClick={() => handleConfirmReturn(req.borrowID)} className="btn-info btn-sm">Confirm Return</button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -102,58 +147,73 @@ export default function LibrarianDashboard() {
         )}
       </div>
 
-      {/* --- SECTION 2: RETURNS --- */}
+      {/* PROCESS RETURN */}
       <div className="section">
-        <h3>↩️ Process Return</h3>
-        <div style={{display: 'flex', gap: '10px'}}>
-          <input 
-            placeholder="Enter Borrow ID (from user)" 
-            value={returnId} 
-            onChange={e => setReturnId(e.target.value)} 
-          />
-          <button onClick={handleReturn} style={{backgroundColor: '#17a2b8'}}>Return Book</button>
+        <h3>↩️ Quick Return</h3>
+        <div className="form-row">
+           <input placeholder="Borrow ID" value={returnId} onChange={e => setReturnId(e.target.value)} />
+           <button onClick={handleManualReturn} className="btn-primary">Return</button>
         </div>
       </div>
 
-      {/* --- SECTION 3: ADD BOOK --- */}
-      <div className="section">
-        <h3>📚 Add New Book</h3>
-        <form onSubmit={handleAddBook} style={{display: 'flex', gap: '10px'}}>
-          <input placeholder="ISBN" value={newBook.bookISBN} onChange={e => setNewBook({...newBook, bookISBN: e.target.value})} required />
-          <input placeholder="Title" value={newBook.bookTitle} onChange={e => setNewBook({...newBook, bookTitle: e.target.value})} required />
-          <input placeholder="Genre" value={newBook.bookGenre} onChange={e => setNewBook({...newBook, bookGenre: e.target.value})} required />
-          <button type="submit">Add</button>
+      {/* ADD / EDIT BOOK FORM */}
+      <div className={`section ${isEditing ? 'primary' : ''}`}>
+        <h3 style={{color: isEditing ? '#007bff' : 'black'}}>
+            {isEditing ? '✏️ Edit Book' : '📚 Add New Book'}
+        </h3>
+        
+        <form onSubmit={handleFormSubmit} className="form-group">
+          <input placeholder="ISBN" value={formData.bookISBN} onChange={e => setFormData({...formData, bookISBN: e.target.value})} required />
+          <input placeholder="Title" value={formData.bookTitle} onChange={e => setFormData({...formData, bookTitle: e.target.value})} required />
+          <input placeholder="Author" value={formData.bookAuthor} onChange={e => setFormData({...formData, bookAuthor: e.target.value})} required />
+          <input placeholder="Genre" value={formData.bookGenre} onChange={e => setFormData({...formData, bookGenre: e.target.value})} required />
+          
+          <div className="form-row">
+            <label>Total Copies:</label>
+            <input type="number" min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} required className="short-input"/>
+          </div>
+
+          <div className="form-row">
+            <button type="submit" className={`btn-primary ${isEditing ? 'btn-primary' : 'btn-success'}`} style={{flex: 1}}>
+                {isEditing ? 'Update Book' : 'Add Book'}
+            </button>
+            
+            {isEditing && (
+                <button type="button" onClick={cancelEdit} className="btn-secondary">
+                    Cancel
+                </button>
+            )}
+          </div>
         </form>
       </div>
 
-      {/* --- SECTION 4: CATALOG --- */}
+      {/* CATALOG */}
       <h3>All Books</h3>
-      <ul>
+      <ul className="book-list">
         {books.map(book => (
-          <li key={book.bookID} style={{padding: '10px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <li key={book.bookID} className="book-list-item">
             <span>
-              <strong>{book.bookTitle}</strong> 
-              <span style={{fontSize: '0.9em', color: '#555'}}> ({book.bookStatus})</span>
-              
-              {/* NEW: Display Borrow ID if it exists */}
-              {book.currentBorrowID && (
-                <span style={{
-                   marginLeft: '15px', 
-                   backgroundColor: '#e2e6ea', 
-                   padding: '2px 8px', 
-                   borderRadius: '4px', 
-                   fontSize: '0.85em', 
-                   color: '#333', 
-                   border: '1px solid #ccc'
-                }}>
-                  🆔 Borrow ID: <strong>{book.currentBorrowID}</strong>
-                </span>
-              )}
+              <strong className="text-bold">{book.bookTitle}</strong> <span className="text-muted">by {book.bookAuthor}</span>
+              <br/>
+              <span className="text-muted">Copies: {book.availableCopies} / {book.totalCopies}</span>
             </span>
-
-            <button onClick={() => handleDelete(book.bookID)} style={{backgroundColor: '#dc3545', padding: '5px 10px', fontSize: '0.8em'}}>
-              Delete
-            </button>
+            
+            <div>
+              <button 
+                onClick={() => startEdit(book)} 
+                className="btn-warning btn-sm mr-2"
+              >
+                Edit
+              </button>
+              
+              <button 
+                onClick={() => handleDelete(book.bookID, book.availableCopies, book.totalCopies)} 
+                className="btn-danger btn-sm"
+                style={{ opacity: (book.availableCopies === book.totalCopies) ? 1 : 0.6 }}
+              >
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>

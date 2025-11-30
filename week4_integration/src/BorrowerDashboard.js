@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import api from './api';
+import './Dashboard.css'; // Ensure styles are imported if not globally imported in App.js
 
 export default function BorrowerDashboard() {
   const [books, setBooks] = useState([]);
-  const [myBooks, setMyBooks] = useState([]); // Store my active borrowings
+  const [myBooks, setMyBooks] = useState([]); 
 
   useEffect(() => {
     fetchBooks();
@@ -35,46 +36,81 @@ export default function BorrowerDashboard() {
     }
   };
 
+  const handleReturnRequest = async (borrowID) => {
+    if(!window.confirm("Are you ready to return this book?")) return;
+
+    try {
+      await api.post('/borrower/request-return', { borrowID });
+      alert('Return requested! Please drop the book off at the library.');
+      fetchMyBooks(); 
+    } catch (err) {
+      alert('Error requesting return');
+    }
+  };
+
   return (
     <div className="container">
       <h1>Borrower Dashboard</h1>
 
-      {/* NEW SECTION: MY BOOKS */}
-      <div className="section" style={{borderColor: '#28a745'}}>
+      {/* MY ACTIVE BOOKS SECTION */}
+      <div className="section success">
         <h3>📖 My Active Books</h3>
         {myBooks.length === 0 ? <p>You have no borrowed books.</p> : (
-          <ul>
-            {myBooks.map((item, index) => (
-              <li key={index} style={{borderBottom: '1px solid #eee', padding: '10px'}}>
-                <strong>{item.bookTitle}</strong> 
-                <br/>
-                Status: {item.status}
-                {item.status === 'approved' && (
-                  <span style={{color: 'red', marginLeft: '10px'}}>
-                     (Due: {item.dueDate ? item.dueDate.split('T')[0] : 'N/A'})
-                  </span>
-                )}
-              </li>
-            ))}
+          <ul className="book-list">
+            {myBooks.map((item, index) => {
+              const isOverdue = item.dueDate && new Date() > new Date(item.dueDate);
+              const isReturnRequested = item.status === 'return_requested';
+              
+              return (
+                <li key={index} className="book-list-item">
+                  <div>
+                    <strong>{item.bookTitle}</strong> 
+                    <br/>
+                    Status: 
+                    <span className={isReturnRequested ? 'text-warning ml-2' : 'text-bold ml-2'}>
+                      {isReturnRequested ? ' WAITING FOR LIBRARIAN' : ` ${item.status.toUpperCase()}`}
+                    </span>
+
+                    {item.status === 'approved' && (
+                      <div className="mt-2 text-muted">
+                        Due: {item.dueDate ? item.dueDate.split('T')[0] : 'N/A'}
+                        {isOverdue && <span className="text-danger ml-2">⚠️ OVERDUE</span>}
+                      </div>
+                    )}
+                  </div>
+
+                  {item.status === 'approved' && (
+                     <button 
+                       onClick={() => handleReturnRequest(item.borrowID)}
+                       className="btn-secondary btn-sm"
+                     >
+                       Request Return
+                     </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
 
       <h3>Library Catalog</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '15px' }}>
+      <div className="catalog-grid">
         {books.map(book => (
-          <div key={book.bookID} style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '8px' }}>
+          <div key={book.bookID} className="book-card">
             <h4>{book.bookTitle}</h4>
-            <p>Status: 
-              <span style={{
-                fontWeight: 'bold', 
-                color: book.bookStatus === 'available' ? 'green' : 'red'
-              }}> {book.bookStatus.toUpperCase()}</span>
+            <p className="text-muted">by {book.bookAuthor || 'Unknown'}</p>
+            <p className="text-muted">{book.bookGenre}</p>
+            
+            <p>
+              Availability: 
+              <strong> {book.availableCopies} </strong> / {book.totalCopies} left
             </p>
-            {book.bookStatus === 'available' ? (
-              <button onClick={() => handleRequest(book.bookID)}>Request Approval</button>
+            
+            {book.availableCopies > 0 ? (
+              <button onClick={() => handleRequest(book.bookID)} className="btn-primary">Request Copy</button>
             ) : (
-              <button disabled style={{backgroundColor: '#ccc'}}>Unavailable</button>
+              <button disabled className="btn-disabled">Out of Stock</button>
             )}
           </div>
         ))}
