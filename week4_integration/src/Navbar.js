@@ -22,7 +22,7 @@ export default function Navbar() {
       {isLoggedIn && (
         <div className="navbar-right">
           <span className="user-info">
-            Logged in as: <strong>{username || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'User')}</strong>
+            Logged in as <strong>{username || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'User')}</strong>
           </span>
           <button onClick={handleLogout} className="btn-logout">
             Logout
