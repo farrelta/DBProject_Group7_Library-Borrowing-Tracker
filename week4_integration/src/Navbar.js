@@ -7,6 +7,8 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const isLoggedIn = sessionStorage.getItem('token');
+  const role = sessionStorage.getItem('role');
+  const username = sessionStorage.getItem('username'); // Get username from storage
 
   const handleLogout = () => {
     sessionStorage.clear();
@@ -18,9 +20,14 @@ export default function Navbar() {
       <h2>📚 Library System</h2>
       
       {isLoggedIn && (
-        <button onClick={handleLogout} className="btn-logout">
-          Logout
-        </button>
+        <div className="navbar-right">
+          <span className="user-info">
+            Logged in as: <strong>{username || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'User')}</strong>
+          </span>
+          <button onClick={handleLogout} className="btn-logout">
+            Logout
+          </button>
+        </div>
       )}
     </header>
   );

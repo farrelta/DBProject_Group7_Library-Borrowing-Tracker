@@ -20,6 +20,24 @@
   font-size: 1.5rem;
 }
 
+/* NEW: Container for Right Side Items */
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* Space between text and button */
+}
+
+/* NEW: User Info Text */
+.user-info {
+  font-size: 0.95rem;
+  color: #ddd;
+}
+
+.user-info strong {
+  color: white;
+  margin-left: 5px;
+}
+
 .btn-logout {
   background-color: transparent;
   border: 1px solid white;
