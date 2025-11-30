@@ -19,21 +19,11 @@ CREATE TABLE Book (
   bookID INT AUTO_INCREMENT PRIMARY KEY,
   bookISBN VARCHAR(20),
   bookTitle VARCHAR(255),
+  bookAuthor VARCHAR(255),
   bookGenre VARCHAR(100),
-  bookStatus ENUM('available', 'pending', 'borrowed') DEFAULT 'available'
-);
-
-CREATE TABLE Author (
-  authorID INT AUTO_INCREMENT PRIMARY KEY,
-  authorName VARCHAR(255)
-);
-
-CREATE TABLE BookAuthor (
-  authorID INT,
-  bookID INT,
-  PRIMARY KEY (authorID, bookID),
-  FOREIGN KEY (authorID) REFERENCES Author(authorID) ON DELETE CASCADE,
-  FOREIGN KEY (bookID) REFERENCES Book(bookID) ON DELETE CASCADE
+  bookStatus ENUM('available', 'pending', 'borrowed') DEFAULT 'available',
+  totalCopies INT DEFAULT 1,
+  availableCopies INT DEFAULT 1
 );
 
 CREATE TABLE Borrowing (
@@ -45,7 +35,7 @@ CREATE TABLE Borrowing (
   userID INT,
   librarianID INT,
   dueDate DATE,
-  status ENUM('pending', 'approved', 'returned') DEFAULT 'pending',
+  status ENUM('pending', 'approved', 'return_requested', 'returned') DEFAULT 'pending',
   FOREIGN KEY (bookID) REFERENCES Book(bookID),
   FOREIGN KEY (userID) REFERENCES Borrower(userID) ON DELETE CASCADE,
   FOREIGN KEY (librarianID) REFERENCES Librarian(librarianID) ON DELETE SET NULL
